@@ -39,7 +39,7 @@
 
     <Loggers>
         <!-- Código de la tienda: DEBUG en ficheros, INFO en consola. -->
-        <Logger name="es.islas.dam.tienda" level="DEBUG" additivity="false">
+        <Logger name="com.carloscaceres.tienda" level="DEBUG" additivity="false">
             <AppenderRef ref="Consola" level="INFO"/>
             <AppenderRef ref="Runtime"/>
             <AppenderRef ref="Evidencia"/>

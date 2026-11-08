@@ -10,7 +10,7 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Logger name="es.islas.dam.tienda" level="DEBUG"/>
+        <Logger name="com.carloscaceres.tienda" level="DEBUG"/>
         <Root level="WARN">
             <AppenderRef ref="Consola"/>
         </Root>

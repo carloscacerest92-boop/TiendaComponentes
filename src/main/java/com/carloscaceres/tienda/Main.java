@@ -1,4 +1,4 @@
-package es.islas.dam.tienda;
+package com.carloscaceres.tienda;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
