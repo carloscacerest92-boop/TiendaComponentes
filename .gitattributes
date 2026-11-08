@@ -1,0 +1,3 @@
+# Normaliza finales de línea para evitar diferencias CRLF/LF entre Windows y otros sistemas.
+* text=auto eol=lf
+*.bat text eol=crlf

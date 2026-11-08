@@ -1,0 +1,22 @@
+# Compilación
+target/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# Configuración local con credenciales reales (se versiona solo el .example)
+/application.properties
+
+# Bases de datos H2 generadas en local
+datos/
+*.mv.db
+*.trace.db
+
+# Log activo e históricos rotados (las evidencias SÍ se versionan)
+logs/runtime/
+
+# Sistema operativo
+Thumbs.db
+.DS_Store

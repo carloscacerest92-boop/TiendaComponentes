@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Configuración externa de Log4j 2.
+  - Consola: seguimiento rápido durante la ejecución (INFO o superior).
+  - logs/runtime/aplicacion.log: log técnico activo con rotación por tamaño, comprimida en .gz.
+  - logs/evidencias/ejecucion_<fecha>.log: un fichero completo por cada ejecución de la aplicación.
+-->
+<Configuration status="WARN">
+    <Properties>
+        <Property name="patron">%d{dd/MM/yyyy HH:mm:ss.SSS} %-5level %-20c{1} - %msg%n%throwable</Property>
+        <Property name="dirRuntime">logs/runtime</Property>
+        <Property name="dirEvidencias">logs/evidencias</Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="Consola" target="SYSTEM_OUT">
+            <PatternLayout pattern="${patron}"/>
+        </Console>
+
+        <!-- Tamaño pequeño a propósito para poder demostrar la rotación sin generar volúmenes innecesarios. -->
+        <RollingFile name="Runtime"
+                     fileName="${dirRuntime}/aplicacion.log"
+                     filePattern="${dirRuntime}/aplicacion-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${patron}"/>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="20 KB"/>
+            </Policies>
+            <!-- Conserva como máximo 5 históricos comprimidos. -->
+            <DefaultRolloverStrategy max="5"/>
+        </RollingFile>
+
+        <!-- La fecha y hora se resuelven una sola vez, al arrancar: un fichero por ejecución. -->
+        <File name="Evidencia"
+              fileName="${dirEvidencias}/ejecucion_${date:dd-MM-yyyy_HH-mm-ss}.log"
+              createOnDemand="true">
+            <PatternLayout pattern="${patron}"/>
+        </File>
+    </Appenders>
+
+    <Loggers>
+        <!-- Código de la tienda: DEBUG en ficheros, INFO en consola. -->
+        <Logger name="es.islas.dam.tienda" level="DEBUG" additivity="false">
+            <AppenderRef ref="Consola" level="INFO"/>
+            <AppenderRef ref="Runtime"/>
+            <AppenderRef ref="Evidencia"/>
+        </Logger>
+
+        <!-- HikariCP (llega a través del puente SLF4J): solo arranque, parada y avisos. -->
+        <Logger name="com.zaxxer.hikari" level="INFO"/>
+
+        <Root level="WARN">
+            <AppenderRef ref="Consola"/>
+            <AppenderRef ref="Runtime"/>
+            <AppenderRef ref="Evidencia"/>
+        </Root>
+    </Loggers>
+</Configuration>

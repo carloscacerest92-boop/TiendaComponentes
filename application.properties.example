@@ -1,0 +1,29 @@
+# ------------------------------------------------------------------
+# Configuración de ejemplo. Cópiala como "application.properties"
+# en la raíz del proyecto y rellena tus credenciales locales.
+# application.properties está en .gitignore: nunca se sube a GitHub.
+# ------------------------------------------------------------------
+
+# Gestor de base de datos: MYSQL | H2
+database.engine=MYSQL
+
+# Obtención de conexiones: DRIVER_MANAGER | POOL
+connection.mode=DRIVER_MANAGER
+
+# Simulación: NORMAL | FALLO_TRANSACCION
+simulation.mode=NORMAL
+
+# --- MySQL (esquema de trabajo de la práctica: unidad2) ---
+mysql.url=jdbc:mysql://localhost:3306/unidad2?createDatabaseIfNotExist=true&serverTimezone=Europe/Madrid
+mysql.user=root
+mysql.password=CAMBIAR_POR_TU_CONTRASENA
+
+# --- H2 embebido (fichero local en ./datos, excluido de Git) ---
+h2.url=jdbc:h2:./datos/unidad2;MODE=MySQL;DATABASE_TO_LOWER=TRUE
+h2.user=sa
+h2.password=
+
+# --- HikariCP (solo se usa con connection.mode=POOL) ---
+pool.maximum-size=5
+pool.minimum-idle=1
+pool.connection-timeout-ms=3000

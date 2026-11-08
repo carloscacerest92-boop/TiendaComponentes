@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Log4j carga log4j2-test.xml antes que log4j2.xml cuando está en el classpath de pruebas.
+  Así las pruebas JUnit no generan ficheros de evidencia ni ensucian el log de la aplicación.
+-->
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Consola" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %-20c{1} - %msg%n%throwable"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="es.islas.dam.tienda" level="DEBUG"/>
+        <Root level="WARN">
+            <AppenderRef ref="Consola"/>
+        </Root>
+    </Loggers>
+</Configuration>
