@@ -69,6 +69,14 @@ public class MovimientoStockDao {
         }
     }
 
+    public int contar(Connection conexion) throws SQLException {
+        try (PreparedStatement sentencia = conexion.prepareStatement("SELECT COUNT(*) FROM movimiento_stock");
+             ResultSet resultado = sentencia.executeQuery()) {
+            resultado.next();
+            return resultado.getInt(1);
+        }
+    }
+
     private void asignarParametros(PreparedStatement sentencia, MovimientoStock movimiento) throws SQLException {
         sentencia.setInt(1, movimiento.getProductoId());
         sentencia.setString(2, movimiento.getTipo().name());
