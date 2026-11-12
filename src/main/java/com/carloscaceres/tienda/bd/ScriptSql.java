@@ -32,6 +32,17 @@ public final class ScriptSql {
                 .toList();
     }
 
+    /**
+     * Lee un script que contiene UNA sola sentencia aunque tenga ';' dentro,
+     * como el cuerpo BEGIN ... END de un procedimiento almacenado.
+     */
+    public static String leerSentenciaUnica(String recurso) {
+        return leerRecurso(recurso).lines()
+                .filter(linea -> !linea.strip().startsWith("--"))
+                .collect(Collectors.joining("\n"))
+                .strip();
+    }
+
     private static String leerRecurso(String recurso) {
         try (InputStream entrada = ScriptSql.class.getClassLoader().getResourceAsStream(recurso)) {
             if (entrada == null) {

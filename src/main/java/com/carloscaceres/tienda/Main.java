@@ -39,9 +39,9 @@ public class Main {
 
         // try-with-resources: en modo POOL, al salir se cierra el DataSource de HikariCP.
         try (ConnectionProvider proveedor = ConnectionProviders.crear(config)) {
-            new InicializadorBaseDatos(proveedor).crearEsquema();
+            new InicializadorBaseDatos(proveedor, config.motor()).crearEsquema();
             new CargaDatosIniciales(proveedor).cargar();
-            new SimulacionTienda(proveedor, config.modoSimulacion()).ejecutar();
+            new SimulacionTienda(proveedor, config.modoSimulacion(), config.motor()).ejecutar();
         } catch (SQLException sqle) {
             log.error("Error de base de datos [SQLState={}, código={}]: {}",
                     sqle.getSQLState(), sqle.getErrorCode(), sqle.getMessage(), sqle);

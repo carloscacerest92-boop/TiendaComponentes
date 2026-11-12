@@ -1,16 +1,29 @@
 package com.carloscaceres.tienda.simulacion;
 
 import com.carloscaceres.tienda.conexion.ConnectionProvider;
+import com.carloscaceres.tienda.bd.InicializadorBaseDatos;
 import com.carloscaceres.tienda.config.ModoSimulacion;
+import com.carloscaceres.tienda.config.MotorBd;
 import com.carloscaceres.tienda.dao.CategoriaDao;
+import com.carloscaceres.tienda.dao.ConsultaDao;
+import com.carloscaceres.tienda.dao.FabricanteDao;
 import com.carloscaceres.tienda.dao.ClienteDao;
 import com.carloscaceres.tienda.dao.DireccionDao;
 import com.carloscaceres.tienda.dao.InventarioDao;
 import com.carloscaceres.tienda.dao.LineaPedidoDao;
 import com.carloscaceres.tienda.dao.MovimientoStockDao;
 import com.carloscaceres.tienda.dao.PedidoDao;
+import com.carloscaceres.tienda.dao.ProcedimientoDao;
 import com.carloscaceres.tienda.dao.ProductoDao;
 import com.carloscaceres.tienda.dto.DetallePedidoDto;
+import com.carloscaceres.tienda.dto.FiltroCatalogo;
+import com.carloscaceres.tienda.dto.Pagina;
+import com.carloscaceres.tienda.dto.PedidoResumenDto;
+import com.carloscaceres.tienda.dto.ProductoCatalogoDto;
+import com.carloscaceres.tienda.dto.ProductoVendidoDto;
+import com.carloscaceres.tienda.dto.ResumenClienteDto;
+import com.carloscaceres.tienda.dto.ResumenVentasCategoriaDto;
+import com.carloscaceres.tienda.dto.StockBajoDto;
 import com.carloscaceres.tienda.dto.LineaDetalleDto;
 import com.carloscaceres.tienda.excepcion.FalloSimuladoException;
 import com.carloscaceres.tienda.excepcion.NegocioException;
@@ -22,6 +35,7 @@ import com.carloscaceres.tienda.modelo.MetodoPago;
 import com.carloscaceres.tienda.modelo.MovimientoStock;
 import com.carloscaceres.tienda.modelo.Pedido;
 import com.carloscaceres.tienda.modelo.Producto;
+import com.carloscaceres.tienda.modelo.TipoProducto;
 import com.carloscaceres.tienda.servicio.GestorTransacciones;
 import com.carloscaceres.tienda.servicio.InventarioService;
 import com.carloscaceres.tienda.servicio.LineaSolicitud;
@@ -30,6 +44,8 @@ import com.carloscaceres.tienda.servicio.PedidoService;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +60,7 @@ public class SimulacionTienda {
 
     private final ConnectionProvider proveedor;
     private final ModoSimulacion modo;
+    private final MotorBd motor;
     private final PedidoService pedidoService;
     private final InventarioService inventarioService;
 
@@ -55,17 +72,23 @@ public class SimulacionTienda {
     private final PedidoDao pedidoDao = new PedidoDao();
     private final LineaPedidoDao lineaDao = new LineaPedidoDao();
     private final MovimientoStockDao movimientoDao = new MovimientoStockDao();
+    private final ConsultaDao consultaDao = new ConsultaDao();
+    private final ProcedimientoDao procedimientoDao = new ProcedimientoDao();
+    private final FabricanteDao fabricanteDao = new FabricanteDao();
 
-    public SimulacionTienda(ConnectionProvider proveedor, ModoSimulacion modo) {
+    private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+    public SimulacionTienda(ConnectionProvider proveedor, ModoSimulacion modo, MotorBd motor) {
         this.proveedor = proveedor;
         this.modo = modo;
+        this.motor = motor;
         GestorTransacciones transacciones = new GestorTransacciones(proveedor);
         this.pedidoService = new PedidoService(transacciones, modo);
         this.inventarioService = new InventarioService(transacciones);
     }
 
     public void ejecutar() throws SQLException {
-        titulo("SIMULACIÓN DE LA TIENDA · modo " + modo);
+        titulo("SIMULACIÓN DE LA TIENDA · gestor " + motor + " · modo " + modo);
         escenarioCatalogo();
         if (modo == ModoSimulacion.FALLO_TRANSACCION) {
             escenarioFalloTransaccion();
@@ -78,6 +101,9 @@ public class SimulacionTienda {
         escenarioPedidosRechazados();
         escenarioCancelacion(pedidoLucia);
         escenarioPrecioHistorico(pedidoLucia);
+        escenarioMasActividad();
+        escenarioConsultas();
+        escenarioIntegridad();
     }
 
     // ------------------------------------------------------------------ escenarios
@@ -266,6 +292,155 @@ public class SimulacionTienda {
         System.out.println(antes.equals(despues) && pedidoNoExiste
                 ? "RESULTADO: el rollback ha deshecho todas las modificaciones."
                 : "RESULTADO: ¡quedan cambios parciales!");
+    }
+
+    private void escenarioMasActividad() throws SQLException {
+        titulo("9. Más actividad comercial (para las consultas de gestión)");
+        Map<String, Integer> elena = new LinkedHashMap<>();
+        elena.put("GPU-RTX5070-VEN", 1);
+        elena.put("SSD-990PRO-2TB", 1);
+        elena.put("RAM-D5-32-VEN", 2);
+        Pedido pedidoElena = registrar(idCliente("elena.torres@correo.es"), elena);
+        if (pedidoElena != null) {
+            ejecutarOperacion(() -> pedidoService.pagarPedido(pedidoElena.getId(), MetodoPago.TARJETA));
+        }
+
+        Map<String, Integer> javier = new LinkedHashMap<>();
+        javier.put("CPU-R5-9600X", 1);
+        javier.put("MB-B650-TOMA", 1);
+        javier.put("RAM-D5-32-VEN", 1);
+        Pedido pedidoJavier = registrar(idCliente("javier.ruiz@correo.es"), javier);
+        if (pedidoJavier != null) {
+            ejecutarOperacion(() -> pedidoService.pagarPedido(pedidoJavier.getId(), MetodoPago.TRANSFERENCIA));
+        }
+
+        Map<String, Integer> pablo = new LinkedHashMap<>();
+        pablo.put("CPU-R5-5600", 1);
+        pablo.put("MB-B550-AORUS", 1);
+        pablo.put("COOL-PUREROCK2", 1);
+        registrar(idCliente("pablo.moreno@correo.es"), pablo);
+    }
+
+    private void escenarioConsultas() throws SQLException {
+        titulo("10. Consultas de gestión");
+        try (Connection conexion = proveedor.getConnection()) {
+
+            System.out.println("-> Catálogo paginado (5 por página, ordenado por precio)");
+            for (int numero = 1; numero <= 2; numero++) {
+                Pagina<ProductoCatalogoDto> pagina = consultaDao.buscarCatalogo(conexion,
+                        FiltroCatalogo.sinFiltros(), numero, 5);
+                System.out.printf("  Página %d de %d (%d productos en total)%n", pagina.numeroPagina(),
+                        pagina.totalPaginas(), pagina.totalElementos());
+                pagina.contenido().forEach(this::imprimirProductoCatalogo);
+            }
+
+            System.out.println("\n-> Filtro: categoría Gaming, solo disponibles, entre 100 y 300 €");
+            FiltroCatalogo gaming = new FiltroCatalogo("Gaming", null, new BigDecimal("100"),
+                    new BigDecimal("300"), true);
+            consultaDao.buscarCatalogo(conexion, gaming, 1, 20).contenido().forEach(this::imprimirProductoCatalogo);
+
+            System.out.println("\n-> Filtro: tarjetas gráficas (GPU)");
+            FiltroCatalogo gpus = new FiltroCatalogo(null, TipoProducto.GPU, null, null, false);
+            consultaDao.buscarCatalogo(conexion, gpus, 1, 20).contenido().forEach(this::imprimirProductoCatalogo);
+
+            System.out.println("\n-> Consulta propia: placas base compatibles con el AMD Ryzen 7 9800X3D");
+            consultaDao.buscarPlacasCompatibles(conexion, "CPU-R7-9800X3D").forEach(this::imprimirProductoCatalogo);
+
+            System.out.println("\n-> Resumen de clientes (COUNT / SUM con LEFT JOIN)");
+            System.out.printf("  %-25s %8s %10s %12s  %s%n", "CLIENTE", "PEDIDOS", "CANCELADOS", "IMPORTE", "ÚLTIMO PEDIDO");
+            for (ResumenClienteDto resumen : consultaDao.resumirClientes(conexion)) {
+                System.out.printf("  %-25s %8d %10d %10s €  %s%n", resumen.cliente(), resumen.numeroPedidos(),
+                        resumen.pedidosCancelados(), resumen.totalGastado(),
+                        resumen.ultimoPedido() == null ? "-" : resumen.ultimoPedido().format(FORMATO_FECHA));
+            }
+
+            Cliente lucia = clienteDao.buscarPorEmail(conexion, "lucia.martin@correo.es");
+            System.out.println("\n-> Historial de pedidos de " + lucia.getNombreCompleto());
+            for (PedidoResumenDto pedido : consultaDao.historialCliente(conexion, lucia.getId())) {
+                System.out.printf("  Pedido %d · %s · %-14s · %d productos / %d uds · %s € · envío a %s%n",
+                        pedido.pedidoId(), pedido.fecha().format(FORMATO_FECHA), pedido.estado(),
+                        pedido.productosDistintos(), pedido.unidades(), pedido.total(), pedido.ciudadEnvio());
+            }
+
+            System.out.println("\n-> Productos más vendidos (sin pedidos cancelados)");
+            for (ProductoVendidoDto vendido : consultaDao.buscarMasVendidos(conexion, 5)) {
+                System.out.printf("  %-18s %-40s %3d uds  %9s €  (%d pedidos)%n", vendido.sku(), vendido.nombre(),
+                        vendido.unidadesVendidas(), vendido.ingresos(), vendido.numeroPedidos());
+            }
+
+            System.out.println("\n-> Control de existencias: productos que necesitan reposición");
+            for (StockBajoDto producto : consultaDao.buscarStockBajo(conexion)) {
+                System.out.printf("  %-18s stock %2d / mínimo %2d -> reponer %2d uds (última entrada: %d)%n",
+                        producto.sku(), producto.stock(), producto.stockMinimo(), producto.unidadesAReponer(),
+                        producto.ultimaEntrada());
+            }
+
+            System.out.println("\n-> Procedimiento almacenado " + InicializadorBaseDatos.NOMBRE_PROCEDIMIENTO
+                    + " (CallableStatement)");
+            if (motor == MotorBd.MYSQL) {
+                for (String categoria : List.of("Gaming", "Gama media", "Workstation")) {
+                    ResumenVentasCategoriaDto resumen = procedimientoDao.resumenVentasCategoria(conexion, categoria);
+                    System.out.printf("  %-12s -> %3d uds vendidas · %9s €%n", resumen.categoria(),
+                            resumen.unidades(), resumen.ingresos());
+                }
+            } else {
+                System.out.println("  No disponible con " + motor + ": el procedimiento es específico de MySQL.");
+            }
+        }
+    }
+
+    /**
+     * Violaciones de integridad reales provocadas contra la base de datos. Son errores técnicos
+     * (SQLException), distintos de las reglas de negocio previstas (NegocioException).
+     */
+    private void escenarioIntegridad() throws SQLException {
+        titulo("11. Integridad de datos y diagnóstico de SQLException");
+
+        System.out.println("-> Cliente con un email que ya existe (UNIQUE)");
+        try (Connection conexion = proveedor.getConnection()) {
+            clienteDao.insertar(conexion, new Cliente("Otra", "Lucía", "lucia.martin@correo.es", null));
+            System.out.println("  ERROR: se ha permitido un email duplicado");
+        } catch (SQLException sqle) {
+            mostrarSQLException(sqle);
+        }
+
+        System.out.println("\n-> Producto con un fabricante inexistente (FOREIGN KEY)");
+        try (Connection conexion = proveedor.getConnection()) {
+            productoDao.insertar(conexion, new Producto("TEST-FK", "Producto sin fabricante", TipoProducto.CAJA,
+                    new BigDecimal("10.00"), 9999, null));
+            System.out.println("  ERROR: se ha permitido una referencia inexistente");
+        } catch (SQLException sqle) {
+            mostrarSQLException(sqle);
+        }
+
+        System.out.println("\n-> GPU con socket (CHECK ck_producto_socket: solo CPU y placas base)");
+        try (Connection conexion = proveedor.getConnection()) {
+            int fabricanteId = fabricanteDao.buscarTodos(conexion).get(0).getId();
+            productoDao.insertar(conexion, new Producto("TEST-CHECK", "GPU con socket", TipoProducto.GPU,
+                    new BigDecimal("10.00"), fabricanteId, idSocketDe(conexion, "CPU-R7-9800X3D")));
+            System.out.println("  ERROR: se ha permitido una GPU con socket");
+        } catch (SQLException sqle) {
+            mostrarSQLException(sqle);
+        }
+    }
+
+    private void mostrarSQLException(SQLException sqle) {
+        String tipo = sqle instanceof SQLIntegrityConstraintViolationException
+                ? "violación de integridad" : "error SQL";
+        System.out.println("  Rechazado por la base de datos (" + tipo + ")");
+        System.out.println("    SQLState : " + sqle.getSQLState());
+        System.out.println("    Código   : " + sqle.getErrorCode());
+        System.out.println("    Mensaje  : " + sqle.getMessage().lines().findFirst().orElse(""));
+    }
+
+    private Integer idSocketDe(Connection conexion, String sku) throws SQLException {
+        return productoDao.buscarPorSku(conexion, sku).getSocketId();
+    }
+
+    private void imprimirProductoCatalogo(ProductoCatalogoDto producto) {
+        String stock = producto.controlaStock() ? String.valueOf(producto.stock()) : "bajo pedido";
+        System.out.printf("    %-18s %-40s %-9s %9s €  stock: %s%n", producto.sku(), producto.nombre(),
+                producto.socket() == null ? "" : producto.socket(), producto.precio(), stock);
     }
 
     // ------------------------------------------------------------------ apoyo
